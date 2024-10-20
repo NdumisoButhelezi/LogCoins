@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bike Shop - Your Best Ride</title>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        header {
+            background-color: #333;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .navbar-brand img {
+    max-height: 40px;
+    margin-right: 10px;
+}
+
+.navbar-nav .nav-item {
+    margin-left: 10px;
+}
+
+        h1, h2 {
+            margin: 0;
+        }
+        #location {
+            margin-top: 10px;
+            font-size: 0.9em;
+        }
+        #products {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            margin-top: 30px;
+        }
+        .product {
+            width: 30%;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .product img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 5px;
+        }
+        .product h3 {
+            margin-top: 15px;
+        }
+        .price {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        .buy-now {
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 10px;
+            transition: background-color 0.3s;
+        }
+        .buy-now:hover {
+            background-color: #45a049;
+        }
+        #grant-modal {
+            display: none;
+            position: fixed;
+            z-index: 2;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.4);
+        }
+        .grant-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 500px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">
+                    
+                    Bike Shop
+                </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <select class="form-select form-select-sm" id="currencySelect" onchange="updateCurrency()">
+                                <option value="ZAR" data-rate="1">ZAR</option>
+                                <option value="USD" data-rate="0.065">USD</option>
+                                <option value="EUR" data-rate="0.055">EUR</option>
+                                <option value="GBP" data-rate="0.048">GBP</option>
+                            </select>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    </header>
+    
+    
+    <h2>YOUR BEST RIDE</h2>
+    
+    <div id="products">
+        <div class="product">
+            <img src="https://images.unsplash.com/photo-1596567181771-c61e3b87f744" alt="Mountain Bike">
+            <h3>Mountain Bike</h3>
+            <p class="price">Price: <span class="price-value" data-price-zar="15000">15000 ZAR</span></p>
+            <button class="buy-now" onclick="buyNow('Mountain Bike', 15000)">Buy Now</button>
+        </div>
+        
+        <div class="product">
+            <img src="https://images.unsplash.com/photo-1485965120184-e220f721d03e" alt="Road Bike">
+            <h3>Road Bike</h3>
+            <p class="price">Price: <span class="price-value" data-price-zar="20000">20000 ZAR</span></p>
+            <button class="buy-now" onclick="buyNow('Road Bike', 20000)">Buy Now</button>
+        </div>
+        
+        <div class="product">
+            <img src="https://images.unsplash.com/photo-1571333250630-f0230c320b6d" alt="BMX Bike">
+            <h3>BMX Bike</h3>
+            <p class="price">Price: <span class="price-value" data-price-zar="8000">8000 ZAR</span></p>
+            <button class="buy-now" onclick="buyNow('BMX Bike', 8000)">Buy Now</button>
+        </div>
+    </div>
+
+    <div id="grant-modal" class="modal">
+        <div class="grant-content">
+            <span class="close">&times;</span>
+            <h2>Scan to Pay</h2>
+            <div id="qrCode"></div>
+        </div>
+    </div>
+
+    <script>
+        let currentProduct = null;
+        let currentPrice = null;
+        let senderPointer = "$ilp.interledger-test.dev/mandem";
+
+        function generateQRCode(product, price) {
+            const qrCodeContainer = document.getElementById('qrCode');
+            qrCodeContainer.innerHTML = ''; // Clear previous QR code
+            
+            const qrData = JSON.stringify({
+                product: product,
+                price: price,
+                pointer: senderPointer
+            });
+
+            new QRCode(qrCodeContainer, {
+                text: qrData,
+                width: 128,
+                height: 128,
+                colorDark: "#000000",
+                colorLight: "#ffffff",
+                correctLevel: QRCode.CorrectLevel.H
+            });
+        }
+
+        function buyNow(product, price) {
+            currentProduct = product;
+            currentPrice = price;
+            
+            const modal = document.getElementById('grant-modal');
+            modal.style.display = 'block';
+            
+            generateQRCode(product, price);
+        }
+
+        function updateCurrency() {
+            const currencySelect = document.getElementById('currencySelect');
+            const selectedOption = currencySelect.options[currencySelect.selectedIndex];
+            const exchangeRate = parseFloat(selectedOption.getAttribute('data-rate'));
+            const currencySymbol = selectedOption.value;
+
+            const priceElements = document.querySelectorAll('.price-value');
+            priceElements.forEach(element => {
+                const priceInZAR = parseFloat(element.getAttribute('data-price-zar'));
+                const convertedPrice = (priceInZAR * exchangeRate).toFixed(2);
+                element.textContent = `${currencySymbol} ${convertedPrice}`;
+            });
+        }
+
+        // Close modal when clicking on <span> (x)
+        document.querySelector('.close').onclick = function() {
+            document.getElementById('grant-modal').style.display = 'none';
+        };
+
+        // Close modal when clicking outside of it
+        window.onclick = function(event) {
+            const modal = document.getElementById('grant-modal');
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        };
+    </script>
+</body>
+</html>
